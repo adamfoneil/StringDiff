@@ -166,4 +166,19 @@ public class StringDiffTests
 
         Assert.Equal(diffExpression, expression);
     }
+
+    [Theory] // segments are 0-based indexed
+    [InlineData("466:232:932:185", "466:232:932:185", "")] // no diffs
+    [InlineData("466:232:185", "466:232:932:185", "+2:932")] // inserted second segment
+    [InlineData("466:232:932:185", "466:232:185", "-2:932")] // deleted second segment
+    [InlineData("847:117:722:362:002", "847:117:362:002:956", "-2:722;+4:956")] // deleted second segment, inserted fourth segment
+    [InlineData("847:117:722:362:002", "847:117:723:362:002", "-2:722;+2:723")] // replaced second segment with new value
+    public void DiffSegments(string original, string modified, string diffExpression)
+    {
+        var originalSegments = original.Split(':');
+        var modifiedSegments = modified.Split(':');
+        var diffSegments = Library.StringDiff.BySegment(originalSegments, modifiedSegments);
+        var expression = Library.StringDiff.SegmentsExpression(diffSegments);
+        Assert.Equal(diffExpression, expression);
+    }
 }

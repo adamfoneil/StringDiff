@@ -20,6 +20,26 @@ public record DeletedText(string Content) : DiffText(Content);
 /// </summary>
 public record InsertedText(string Content) : DiffText(Content);
 
+/// <summary>
+/// Base abstraction for segment diff operations that include index information
+/// </summary>
+public record DiffSegment(int Index, string Content);
+
+/// <summary>
+/// Represents a segment that is unchanged between the two arrays
+/// </summary>
+public record UnchangedSegment(int Index, string Content) : DiffSegment(Index, Content);
+
+/// <summary>
+/// Represents a segment that was deleted from the original array
+/// </summary>
+public record DeletedSegment(int Index, string Content) : DiffSegment(Index, Content);
+
+/// <summary>
+/// Represents a segment that was inserted into the new array
+/// </summary>
+public record InsertedSegment(int Index, string Content) : DiffSegment(Index, Content);
+
 public static class StringDiff
 {
     /// <summary>
@@ -87,6 +107,33 @@ public static class StringDiff
         var operations = new List<DiffText>();
         var lcsTable = BuildLCSTableForWords(originalWords, modifiedWords);
         BuildDiffFromLCSForWords(originalWords, modifiedWords, lcsTable, operations);
+
+        return operations;
+    }
+
+    public static IEnumerable<DiffSegment> BySegment(IEnumerable<string> original, IEnumerable<string> modified)
+    {
+        var originalArray = original.ToArray();
+        var modifiedArray = modified.ToArray();
+
+        if (originalArray.Length == 0 && modifiedArray.Length == 0)
+        {
+            return [];
+        }
+
+        if (originalArray.Length == 0)
+        {
+            return modifiedArray.Select((seg, idx) => new InsertedSegment(idx, seg));
+        }
+
+        if (modifiedArray.Length == 0)
+        {
+            return originalArray.Select((seg, idx) => new DeletedSegment(idx, seg));
+        }
+
+        var operations = new List<DiffSegment>();
+        var lcsTable = BuildLCSTableForSegments(originalArray, modifiedArray);
+        BuildDiffFromLCSForSegments(originalArray, modifiedArray, lcsTable, operations);
 
         return operations;
     }
@@ -219,6 +266,73 @@ public static class StringDiff
     }
 
     /// <summary>
+    /// Builds the LCS table for segment arrays
+    /// </summary>
+    private static int[,] BuildLCSTableForSegments(string[] segments1, string[] segments2)
+    {
+        int m = segments1.Length;
+        int n = segments2.Length;
+        int[,] dp = new int[m + 1, n + 1];
+
+        for (int i = 1; i <= m; i++)
+        {
+            for (int j = 1; j <= n; j++)
+            {
+                if (segments1[i - 1] == segments2[j - 1])
+                {
+                    dp[i, j] = dp[i - 1, j - 1] + 1;
+                }
+                else
+                {
+                    dp[i, j] = Math.Max(dp[i - 1, j], dp[i, j - 1]);
+                }
+            }
+        }
+
+        return dp;
+    }
+
+    /// <summary>
+    /// Iteratively builds the diff operations from the LCS table for segments
+    /// </summary>
+    private static void BuildDiffFromLCSForSegments(string[] original, string[] modified, 
+                                                     int[,] lcsTable, List<DiffSegment> operations)
+    {
+        int i = original.Length;
+        int j = modified.Length;
+        var stack = new Stack<DiffSegment>();
+
+        while (i > 0 || j > 0)
+        {
+            if (i > 0 && j > 0 && original[i - 1] == modified[j - 1])
+            {
+                // Segments match - part of LCS
+                stack.Push(new UnchangedSegment(i - 1, original[i - 1]));
+                i--;
+                j--;
+            }
+            else if (j > 0 && (i == 0 || lcsTable[i, j - 1] >= lcsTable[i - 1, j]))
+            {
+                // Insertion in modified
+                stack.Push(new InsertedSegment(j - 1, modified[j - 1]));
+                j--;
+            }
+            else if (i > 0)
+            {
+                // Deletion from original
+                stack.Push(new DeletedSegment(i - 1, original[i - 1]));
+                i--;
+            }
+        }
+
+        // Add operations in correct order (no merging needed for segments)
+        while (stack.Count > 0)
+        {
+            operations.Add(stack.Pop());
+        }
+    }
+
+    /// <summary>
     /// Builds the LCS table using dynamic programming
     /// </summary>
     private static int[,] BuildLCSTable(string s1, string s2)
@@ -344,5 +458,32 @@ public static class StringDiff
         }
 
         return result.ToString();
+    }
+
+    public static string SegmentsExpression(IEnumerable<DiffSegment> diffs)
+    {
+        var operations = diffs
+            .Where(d => d is DeletedSegment or InsertedSegment)
+            .ToList();
+
+        if (operations.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var result = new List<string>();
+
+        foreach (var op in operations)
+        {
+            var prefix = op switch
+            {
+                DeletedSegment => "-",
+                InsertedSegment => "+",
+                _ => ""
+            };
+            result.Add($"{prefix}{op.Index}:{op.Content}");
+        }
+
+        return string.Join(";", result);
     }
 }
