@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="StringDiff.Library/StringDiff.Library.csproj" />
+  <Project Path="StringDiff.Tests/StringDiff.Tests.csproj" />
+</Solution>
