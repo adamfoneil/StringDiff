@@ -181,4 +181,23 @@ public class StringDiffTests
         var expression = Library.StringDiff.SegmentsExpression(diffSegments);
         Assert.Equal(diffExpression, expression);
     }
+
+    [Theory]
+    [InlineData("this or that", "this and that", "this <del>or</del> that", "this <ins>and</ins> that")]
+    public void DiffToMarkupPair(string  original, string modified, string expectedOriginalMarkup, string expectedModifiedMarkup)
+    {
+        var diffs = Library.StringDiff.ByWords(original, modified);
+        var (originalMarkup, modifiedMarkup) = Library.StringDiff.ToMarkupPair(diffs);
+        Assert.Equal(expectedOriginalMarkup, originalMarkup);
+        Assert.Equal(expectedModifiedMarkup, modifiedMarkup);
+    }
+
+    [Theory]
+    [InlineData("this or that", "this and that", "this <del>or</del><ins>and</ins> that")]
+    public void DiffToMarkup(string original, string modified, string expectedMarkup)
+    {
+        var diffs = Library.StringDiff.ByWords(original, modified);
+        var actualMarkup = Library.StringDiff.ToMarkup(diffs);        
+        Assert.Equal(expectedMarkup, actualMarkup);        
+    }
 }

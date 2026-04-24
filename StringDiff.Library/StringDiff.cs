@@ -138,6 +138,47 @@ public static class StringDiff
         return operations;
     }
 
+    public static string ToMarkup(IEnumerable<DiffText> diffs)
+    {
+        var result = new System.Text.StringBuilder();
+        foreach (var diff in diffs)
+        {
+            result.Append(ToHtml(diff));
+        }
+        return result.ToString();
+    }
+
+    public static (string Original, string Modified) ToMarkupPair(IEnumerable<DiffText> diffs)
+    {
+        var original = new System.Text.StringBuilder();
+        var modified = new System.Text.StringBuilder();
+        foreach (var diff in diffs)
+        {
+            switch (diff)
+            {
+                case UnchangedText unchanged:
+                    original.Append(ToHtml(unchanged));
+                    modified.Append(ToHtml(unchanged));
+                    break;
+                case DeletedText deleted:
+                    original.Append(ToHtml(deleted));
+                    break;
+                case InsertedText inserted:
+                    modified.Append(ToHtml(inserted));
+                    break;
+            }
+        }
+        return (original.ToString(), modified.ToString());
+    }
+
+    private static string ToHtml(DiffText diff) => diff switch
+    {
+        UnchangedText unchanged => unchanged.Content,
+        DeletedText deleted => $"<del>{deleted.Content}</del>",
+        InsertedText inserted => $"<ins>{inserted.Content}</ins>",
+        _ => throw new InvalidOperationException()
+    };
+
     /// <summary>
     /// Tokenizes a string into words and separators
     /// </summary>
